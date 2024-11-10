@@ -33,7 +33,7 @@ def load_ABSA_json(path, sep_token):
     with open(path, 'r') as f:
         raw_dict = json.load(f)
     texts, labels = zip(*[(v['term']+sep_token+v['sentence'], label2idx[v['polarity']]) for v in raw_dict.values()])
-    ds = Dataset.from_dict({'text':texts, 'labels':labels})
+    ds = Dataset.from_dict({'text':texts, 'label':labels})
     return ds
 
 def load_ABSA_dataset(folder, sep_token):
@@ -44,11 +44,11 @@ def load_ABSA_dataset(folder, sep_token):
 
 def load_acl_jsonl(path):
     label2idx = {'Uses':0, 'Future':1, 'CompareOrContrast':2, 'Motivation':3, 'Extends':4, 'Background':5}
-    data = {'text':[], 'labels':[]}
+    data = {'text':[], 'label':[]}
     with open(path, 'r') as f:
         for item in jsonlines.Reader(f):
             data['text'].append(item['text'])
-            data['labels'].append(label2idx[item['label']])
+            data['label'].append(label2idx[item['label']])
     return Dataset.from_dict(data)
 
 def get_restaurant_sup(sep_token, *arg):
@@ -67,20 +67,20 @@ def get_acl_sup(*arg):
 def get_agnews_sup(*arg):
     data_file="data/agnews/test.parquet"
     raw_ds = Dataset.from_parquet(data_file)
-    raw_ds = raw_ds.map(features=Features({'text':Value(dtype='string', id=None), 'label':Value(dtype='int64', id=None)})).rename_column("label", "labels")
+    raw_ds = raw_ds.map(features=Features({'text':Value(dtype='string', id=None), 'label':Value(dtype='int64', id=None)}))
     ds = raw_ds.train_test_split(test_size=0.1, seed=2024, shuffle=True)
     return ds
 
 def to_fs_dataset(ds:DatasetDict, seed=2024):
     ds = copy.copy(ds)
-    num_labels = max(ds['train']['labels']) + 1
+    num_labels = max(ds['train']['label']) + 1
     if num_labels <= 4:
         ds['train'] = ds['train'].shuffle(seed=seed)
         ds['train'] = ds['train'].select(range(32))
     else:
         ds['train'] = ds['train'].shuffle(seed=seed)
         _idx = [[] for _ in range(num_labels)]
-        for idx, label in enumerate(ds['train']['labels']):
+        for idx, label in enumerate(ds['train']['label']):
             if len(_idx[label]) < 8:
                 _idx[label].append(idx)
         idx_lst = [i for item in _idx for i in item]
@@ -108,7 +108,7 @@ def aggregate_dataset(ds_list, num_list, shuffle=True, seed=2024):
         add = 0
         new_ds_list = [ds_list[0]]
         def shift_label(example):
-            example['labels'] += add
+            example['label'] += add
             return example
         for i in range(1, len(ds_list)):
             add += num_list[i - 1]

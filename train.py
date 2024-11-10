@@ -187,7 +187,7 @@ def main():
     if not model_args.peft:
         model = AutoModelForSequenceClassification.from_pretrained(
             model_args.model_name_or_path,
-            num_labels=len(raw_dataset['train'].unique('labels')),
+            num_labels=len(raw_dataset['train'].unique('label')),
             cache_dir=model_args.cache_dir,
         )
         logger.info(sum(p.numel() for p in model.parameters() if p.requires_grad))
@@ -201,8 +201,8 @@ def main():
         model.add_adapter("PEFT", config=double_bn_config)
         model.add_classification_head(
             "PEFT", 
-            num_labels=len(raw_dataset['train'].unique('labels')), 
-            id2label={i:v for i,v in enumerate(raw_dataset['train'].unique('labels'))}
+            num_labels=len(raw_dataset['train'].unique('label')), 
+            id2label={i:v for i,v in enumerate(raw_dataset['train'].unique('label'))}
         )
         model.train_adapter("PEFT")
         logger.info(model.adapter_summary())
