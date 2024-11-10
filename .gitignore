@@ -169,5 +169,3 @@ RobertaWithAdapter
 peft-model/
 model/
 data/
-*.bat
-*.json

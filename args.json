@@ -1,0 +1,17 @@
+{
+    "dataset_name":["agnews_sup", "restaurant_sup", "acl_sup"],
+    "model_name_or_path":"allenai/scibert_scivocab_uncased",
+    "cache_dir":"model",
+    "do_train":true,
+    "do_eval":true,
+    "seed":2024,
+    "output_dir":"save",
+    "num_train_epochs":6,
+    "overwrite_output_dir":true,
+    "wandb_project":"scivocab",
+    "report_to":"wandb",
+    "run_name":"1st",
+    "logging_steps":5,
+    "per_device_train_batch_size":8,
+    "eval_strategy":"epoch"
+}
