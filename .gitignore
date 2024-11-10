@@ -162,10 +162,12 @@ cython_debug/
 #.idea/
 
 wandb/
-wandb cache/
+wandb_cache/
 .vscode/
 save/
-RobertaWithAdapter
+output/
 peft-model/
 model/
 data/
+test.py
+*.txt

@@ -1,3 +1,4 @@
+import os
 import json
 import jsonlines
 import copy
@@ -32,54 +33,54 @@ def load_ABSA_json(path, sep_token):
     with open(path, 'r') as f:
         raw_dict = json.load(f)
     texts, labels = zip(*[(v['term']+sep_token+v['sentence'], label2idx[v['polarity']]) for v in raw_dict.values()])
-    ds = Dataset.from_dict({'text':texts, 'label':labels})
+    ds = Dataset.from_dict({'text':texts, 'labels':labels})
     return ds
 
 def load_ABSA_dataset(folder, sep_token):
-    train_ds = load_ABSA_json(folder + '\\train.json', sep_token)
-    test_ds = load_ABSA_json(folder + '\\test.json', sep_token)
+    train_ds = load_ABSA_json(os.path.join(folder, 'train.json'), sep_token)
+    test_ds = load_ABSA_json(os.path.join(folder, 'test.json'), sep_token)
     ds = DatasetDict({'train':train_ds, 'test':test_ds})
     return ds
 
 def load_acl_jsonl(path):
     label2idx = {'Uses':0, 'Future':1, 'CompareOrContrast':2, 'Motivation':3, 'Extends':4, 'Background':5}
-    data = {'text':[], 'label':[]}
+    data = {'text':[], 'labels':[]}
     with open(path, 'r') as f:
         for item in jsonlines.Reader(f):
             data['text'].append(item['text'])
-            data['label'].append(label2idx[item['label']])
+            data['labels'].append(label2idx[item['label']])
     return Dataset.from_dict(data)
 
 def get_restaurant_sup(sep_token, *arg):
-    return load_ABSA_dataset('data\\SemEval14-res', sep_token)
+    return load_ABSA_dataset('data/SemEval14-res', sep_token)
 
 def get_laptop_sup(sep_token, *arg):
-    return load_ABSA_dataset('data\\SemEval14-laptop', sep_token)
+    return load_ABSA_dataset('data/SemEval14-laptop', sep_token)
 
 def get_acl_sup(*arg):
-    train_file = 'data\\ACL-ARC\\train.jsonl'
-    test_file = 'data\\ACL-ARC\\test.jsonl'
+    train_file = 'data/ACL-ARC/train.jsonl'
+    test_file = 'data/ACL-ARC/test.jsonl'
     train_ds = load_acl_jsonl(train_file)
     test_ds = load_acl_jsonl(test_file)
     return DatasetDict({'train':train_ds, 'test':test_ds})
 
 def get_agnews_sup(*arg):
-    data_file="data\\agnews\\test.parquet"
+    data_file="data/agnews/test.parquet"
     raw_ds = Dataset.from_parquet(data_file)
-    raw_ds = raw_ds.map(features=Features({'text':Value(dtype='string', id=None), 'label':Value(dtype='int64', id=None)}))
-    ds = raw_ds.train_test_split(test_size=0.1, seed=2022, shuffle=True)
+    raw_ds = raw_ds.map(features=Features({'text':Value(dtype='string', id=None), 'label':Value(dtype='int64', id=None)})).rename_column("label", "labels")
+    ds = raw_ds.train_test_split(test_size=0.1, seed=2024, shuffle=True)
     return ds
 
-def to_fs_dataset(ds:DatasetDict, seed=2022):
+def to_fs_dataset(ds:DatasetDict, seed=2024):
     ds = copy.copy(ds)
-    num_labels = max(ds['train']['label']) + 1
+    num_labels = max(ds['train']['labels']) + 1
     if num_labels <= 4:
         ds['train'] = ds['train'].shuffle(seed=seed)
         ds['train'] = ds['train'].select(range(32))
     else:
         ds['train'] = ds['train'].shuffle(seed=seed)
         _idx = [[] for _ in range(num_labels)]
-        for idx, label in enumerate(ds['train']['label']):
+        for idx, label in enumerate(ds['train']['labels']):
             if len(_idx[label]) < 8:
                 _idx[label].append(idx)
         idx_lst = [i for item in _idx for i in item]
@@ -99,7 +100,7 @@ get_acl_fs = to_fs_function(get_acl_sup)
 
 get_agnews_fs = to_fs_function(get_agnews_sup)
 
-def aggregate_dataset(ds_list, num_list, shuffle=True, seed=2022):
+def aggregate_dataset(ds_list, num_list, shuffle=True, seed=2024):
     assert len(ds_list) == len(num_list)
     if len(ds_list) == 1:
         return ds_list[0]
@@ -107,7 +108,7 @@ def aggregate_dataset(ds_list, num_list, shuffle=True, seed=2022):
         add = 0
         new_ds_list = [ds_list[0]]
         def shift_label(example):
-            example['label'] += add
+            example['labels'] += add
             return example
         for i in range(1, len(ds_list)):
             add += num_list[i - 1]
@@ -134,13 +135,3 @@ def get_dataset(dataset_name, sep_token):
         ds_list = [name_to_dataset(i) for i in dataset_name]
         num_list = [datasets_class_num[i] for i in dataset_name]
         return aggregate_dataset(ds_list, num_list)
-    
-# if __name__ == '__main__':
-#     a = get_dataset("agnews_sup", '')
-#     print(a["train"].unique("label"))
-#     b = get_dataset("restaurant_sup","")
-#     print(b["train"].unique("label"))
-#     c = get_dataset("acl_sup", "")
-#     print(c["train"].unique("label"))
-#     d = get_dataset(["agnews_sup", "restaurant_sup", "acl_sup"], sep_token='')
-#     print(d['train'].unique('label'))
