@@ -8,7 +8,7 @@ do
     do
         for seed in {1..5}
         do
-            echo "$model $dataset $seed $peft"
+            echo "$model $dataset $seed"
             proxychains4 -q python train.py\
                 --cache_dir model\
                 --do_train 1\
