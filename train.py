@@ -19,7 +19,7 @@ from transformers import (
     Trainer
 )
 import evaluate
-from adapters import AutoAdapterModel, AdapterTrainer, DoubleSeqBnConfig, BertAdapterModel
+from adapters import AutoAdapterModel, AdapterTrainer, DoubleSeqBnConfig, LoRAConfig
 
 
 '''
@@ -84,42 +84,11 @@ class ModelArguments:
     )
     cache_dir: Optional[str] = field(
         default=None,
-        metadata={"help": "Where do you want to store the pretrained models downloaded from huggingface.co"}
+        metadata={"help": "Path to store the pretrained models downloaded from huggingface."}
     )
-    # use_fast_tokenizer: bool = field(
-    #     default=True,
-    #     metadata={"help": "Whether to use one of the fast tokenizer (backed by the tokenizers library) or not."}
-    # )
-    # model_revision: str = field(
-    #     default="main",
-    #     metadata={"help": "The specific model version to use (can be a branch name, tag name or commit id)."}
-    # )
-    # token: str = field(
-    #     default=None,
-    #     metadata={
-    #         "help": (
-    #             "The token to use as HTTP bearer authorization for remote files. If not specified, will use the token "
-    #             "generated when running `huggingface-cli login` (stored in `~/.huggingface`)."
-    #         )
-    #     }
-    # )
-    # trust_remote_code: bool = field(
-    #     default=False,
-    #     metadata={
-    #         "help": (
-    #             "Whether to trust the execution of code from datasets/models defined on the Hub."
-    #             " This option should only be set to `True` for repositories you trust and in which you have read the"
-    #             " code, as it will execute code present on the Hub on your local machine."
-    #         )
-    #     }
-    # )
-    # ignore_mismatched_sizes: bool = field(
-    #     default=False,
-    #     metadata={"help": "Will enable to load a pretrained model whose head dimensions are different."}
-    # )
-    peft: bool = field(
-        default=False,
-        metadata={"help": "Will enable to load a pretrained model whose head dimensions are different."}
+    peft_mode: Optional[str] = field(
+        default=None,
+        metadata={"help": "Peft mode to use."}
     )
 
 @dataclass
@@ -129,9 +98,6 @@ class WandbArguments:
     )
     wandb_project: str = field(
         default='untitled_project'
-    )
-    wandb_log_model: str = field(
-        default='end'
     )
     wandb_cache_dir: str = field(
         default='wandb_cache'
@@ -184,28 +150,33 @@ def main():
     raw_dataset = get_dataset(data_args.dataset_name, sep_token=tokenizer.sep_token)
     
     # Load model
-    if not model_args.peft:
+    if model_args.peft is None:
         model = AutoModelForSequenceClassification.from_pretrained(
             model_args.model_name_or_path,
             num_labels=len(raw_dataset['train'].unique('label')),
             cache_dir=model_args.cache_dir,
         )
-        logger.info(sum(p.numel() for p in model.parameters() if p.requires_grad))
+        logger.info(sum(p.numel() for p in model.parameters() if p.requires_grad)) # Report the number of trainable params
         
     else:
         model = AutoAdapterModel.from_pretrained(
             model_args.model_name_or_path,
             cache_dir=model_args.cache_dir,
         )
-        double_bn_config = DoubleSeqBnConfig(reduction_factor=16)
-        model.add_adapter("PEFT", config=double_bn_config)
+        if model_args.peft == "adapter":
+            adapter_config = DoubleSeqBnConfig(reduction_factor=16)
+        elif model_args.peft == "lora":
+            adapter_config = LoRAConfig(r=32)
+        else:
+            raise ValueError(f"Undefined peft method {model_args.peft}")
+        model.add_adapter("PEFT", config=adapter_config)
         model.add_classification_head(
             "PEFT", 
             num_labels=len(raw_dataset['train'].unique('label')), 
             id2label={i:v for i,v in enumerate(raw_dataset['train'].unique('label'))}
         )
         model.train_adapter("PEFT")
-        logger.info(model.adapter_summary())
+        logger.info(model.adapter_summary()) # Report the number of trainable params
 
     '''
     Process datasets and build up dataloader
@@ -249,7 +220,7 @@ def main():
     '''
     Training
     '''
-    if not model_args.peft:
+    if model_args.peft is None:
         trainer = Trainer(
             model=model,
             args=training_args,
