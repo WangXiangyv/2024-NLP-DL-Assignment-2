@@ -5,6 +5,9 @@ import copy
 from datasets import load_dataset, concatenate_datasets
 from datasets import Dataset, DatasetDict, ClassLabel, Features, Value
 
+''' 
+The content of implemented datasets.
+'''
 implemented_datasets = {
     'restaurant_sup',
     'laptop_sup',
@@ -27,7 +30,9 @@ datasets_class_num = {
     'agnews_fs':4,
 }
 
-
+'''
+Functions about reading files
+'''
 def load_ABSA_json(path, sep_token):
     label2idx = {'positive':0, 'neutral':1, 'negative':2}
     with open(path, 'r') as f:
@@ -51,6 +56,9 @@ def load_acl_jsonl(path):
             data['label'].append(label2idx[item['label']])
     return Dataset.from_dict(data)
 
+'''
+Functions about modifying object format and obtaining usable datsets
+'''
 def get_restaurant_sup(sep_token, *arg):
     return load_ABSA_dataset('data/SemEval14-res', sep_token)
 
@@ -71,6 +79,10 @@ def get_agnews_sup(*arg):
     ds = raw_ds.train_test_split(test_size=0.1, seed=2024, shuffle=True)
     return ds
 
+
+'''
+Functions about obtaining fs datasets
+'''
 def to_fs_dataset(ds:DatasetDict, seed=2024):
     ds = copy.copy(ds)
     num_labels = max(ds['train']['label']) + 1
@@ -100,6 +112,10 @@ get_acl_fs = to_fs_function(get_acl_sup)
 
 get_agnews_fs = to_fs_function(get_agnews_sup)
 
+
+'''
+Functions about aggregating datasets
+'''
 def aggregate_dataset(ds_list, num_list, shuffle=True, seed=2024):
     assert len(ds_list) == len(num_list)
     if len(ds_list) == 1:
@@ -120,6 +136,10 @@ def aggregate_dataset(ds_list, num_list, shuffle=True, seed=2024):
             concat_test = concat_test.shuffle(seed=seed)
         return DatasetDict({'train':concat_train, 'test':concat_test})
 
+
+'''
+The interface API for getting datasets
+'''
 def get_dataset(dataset_name, sep_token):
     '''
     dataset_name: str, the name of the dataset
