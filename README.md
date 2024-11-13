@@ -1,5 +1,6 @@
 # 2024 PKU NLP-DL Assignment 2
-
+by Xiangyu Wang
+\\
 ### Introduction of the structure of the project
 
 - Files in **data/** folder are pre-downloaded and pre-processed datasets, which can be used directly via other parts of the project. If you want to re-download data from authoriy, please refer to **dataHelper.py** to modify the format of the datasets or instead modify the logics of **dataHelper.py**.
